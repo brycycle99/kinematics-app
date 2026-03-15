@@ -1,0 +1,15 @@
+# --- Frontend (Vite/React) ---
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# --- Backend (Python/FastAPI) ---
+venv/
+__pycache__/
+*.py[cod]
+.env
+
+# --- OS/Misc ---
+.DS_Store
+.vscode/
