@@ -13,3 +13,4 @@ __pycache__/
 # --- OS/Misc ---
 .DS_Store
 .vscode/
+*.db
