@@ -1,95 +1,80 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, 
-  Tooltip, Legend, ResponsiveContainer 
-} from 'recharts';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import Browser from './Browser'; 
+
+const Home = ({ bikeCount }) => (
+  <div style={{ 
+    padding: '100px 20px', 
+    textAlign: 'center', 
+    maxWidth: '800px', 
+    margin: '0 auto',
+  }}>
+    <h1 style={{ fontSize: '3.5rem', marginBottom: '10px', color: '#ffffff', letterSpacing: '-1px' }}>
+      The Open Kinematics Project
+    </h1>
+    <h3 style={{ color: '#a0a0a0', fontWeight: '400', marginBottom: '40px', fontSize: '1.4rem' }}>
+      Standardizing Mountain Bike Suspension Data
+    </h3>
+    
+    <p style={{ fontSize: '1.15rem', lineHeight: '1.7', color: '#b3b3b3', marginBottom: '50px' }}>
+      We are building an open-source, high-fidelity database of kinematics. 
+      From leverage ratios to axle paths, our goal is to provide clean data for 
+      comparative analysis and engineering research.
+    </p>
+    
+    <div style={{ margin: '60px 0' }}>
+      <div style={{ fontSize: '6rem', fontWeight: '800', color: '#3b82f6', lineHeight: '1' }}>
+        {bikeCount}
+      </div>
+      <div style={{ fontSize: '1rem', color: '#666', letterSpacing: '3px', marginTop: '15px', fontWeight: '600' }}>
+        BIKES INDEXED
+      </div>
+    </div>
+
+    <Link to="/explore">
+      <button style={{ 
+        padding: '16px 45px', 
+        fontSize: '1.1rem', 
+        backgroundColor: '#3b82f6', 
+        color: 'white', 
+        border: 'none', 
+        borderRadius: '8px', 
+        cursor: 'pointer',
+        fontWeight: '600',
+        letterSpacing: '0.5px',
+        transition: 'background-color 0.2s',
+        boxShadow: '0 4px 14px 0 rgba(59, 130, 246, 0.39)'
+      }}>
+        Explore the Database
+      </button>
+    </Link>
+  </div>
+);
 
 const App = () => {
   const [bikeList, setBikeList] = useState([]);
-  const [selectedBikeData, setSelectedBikeData] = useState(null);
-  const [loading, setLoading] = useState(true);
 
-  // Initial Fetch: Get the list of bikes
   useEffect(() => {
     fetch('http://localhost:8000/bikes')
       .then(res => res.json())
-      .then(data => {
-        setBikeList(data);
-        setLoading(false);
-      })
-      .catch(err => console.error("Error fetching bike list:", err));
+      .then(data => setBikeList(data))
+      .catch(err => console.error("Database connection error:", err));
   }, []);
 
-  // Action: Fetch specific kinematics when a bike is clicked
-  const handleSelectBike = (bikeId) => {
-    fetch(`http://localhost:8000/kinematics/${bikeId}`)
-      .then(res => res.json())
-      .then(data => {
-        setSelectedBikeData(data);
-      })
-      .catch(err => console.error("Error fetching kinematics:", err));
-  };
-
-  if (loading) return <div style={{ padding: '40px' }}>Connecting to Kinematics Database...</div>;
-
   return (
-    <div style={{ padding: '40px', fontFamily: 'sans-serif', maxWidth: '1000px', margin: '0 auto' }}>
-      <h1>MTB Kinematics Browser</h1>
-      
-      {/* Bike Selection Buttons */}
-      <div style={{ marginBottom: '30px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-        {bikeList.map(bike => (
-          <button 
-            key={bike.id} 
-            onClick={() => handleSelectBike(bike.id)}
-            style={{ 
-              padding: '10px 15px',
-              backgroundColor: selectedBikeData?.model === bike.model ? '#4CAF50' : '#f0f0f0',
-              color: selectedBikeData?.model === bike.model ? 'white' : 'black',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            {bike.brand} {bike.model}
-          </button>
-        ))}
-      </div>
-
-      {/* Chart Section */}
-      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
-        {selectedBikeData ? (
-          <>
-            <h3>{selectedBikeData.model} - Leverage Ratio</h3>
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={selectedBikeData.points}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis 
-                  dataKey="travel" 
-                  type="number"
-                  label={{ value: 'Travel (mm)', position: 'insideBottom', offset: -10 }} 
-                />
-                <YAxis 
-                  domain={['auto', 'auto']} 
-                  label={{ value: 'Ratio', angle: -90, position: 'insideLeft' }} 
-                />
-                <Tooltip />
-                <Line 
-                  type="monotone" 
-                  dataKey="ratio" 
-                  stroke="#4CAF50" 
-                  strokeWidth={3} 
-                  dot={{ r: 4 }} 
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </>
-        ) : (
-          <div style={{ height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
-            Select a bike above to visualize its leverage curve.
-          </div>
-        )}
-      </div>
+    <div style={{ 
+      backgroundColor: '#121212', 
+      minHeight: '100vh', 
+      color: '#e0e0e0', 
+      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' 
+    }}>
+      {/* Global Wrapper for Dark Mode & Sleek Fonts */}
+      <Router>
+        <Routes>
+          <Route path="/" element={<Home bikeCount={bikeList.length} />} />
+          <Route path="/explore" element={<Browser bikeList={bikeList} />} />
+        </Routes>
+      </Router>
     </div>
   );
 };
