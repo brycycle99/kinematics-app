@@ -93,7 +93,7 @@ def process_bike_folder(db, folder_path):
         
         # 2. Drop any rows where Travel is NaN (this deletes the text footer)
         df.dropna(subset=['Travel'], inplace=True)
-        
+
         # 3. Now it is safe to set the index
         df.set_index('Travel', inplace=True)
         

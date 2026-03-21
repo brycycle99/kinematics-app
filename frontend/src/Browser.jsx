@@ -189,6 +189,7 @@ const Browser = ({ bikeList }) => {
                         dot={false}
                         activeDot={{ r: 6, fill: '#1e1e1e', stroke: COLORS[index % COLORS.length], strokeWidth: 2 }} 
                         animationDuration={400}
+                        connectNulls={true}
                       />
                     ))}
                   </LineChart>
