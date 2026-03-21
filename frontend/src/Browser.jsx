@@ -37,7 +37,7 @@ const Browser = ({ bikeList }) => {
     "travel", "travel_percent", "leverage_ratio", 
     "anti_squat_low", "anti_squat_high", "anti_rise_low", "anti_rise_high", 
     "pedal_kickback_low", "pedal_kickback_high", "chain_growth_low", "chain_growth_high", 
-    "forces", "shock_compression", "axle_path_x", "axle_path_radius", "axle_path_steepness"
+    "shock_compression", "axle_path_x", "axle_path_radius", "axle_path_steepness"
   ];
 
   const getMetricLabel = (key) => {
@@ -53,7 +53,6 @@ const Browser = ({ bikeList }) => {
       pedal_kickback_high: "Pedal Kickback (Descend)",
       chain_growth_low: "Chain Growth (Climb)",
       chain_growth_high: "Chain Growth (Descend)",
-      forces: "Forces",
       shock_compression: "Shock Compression",
       axle_path_x: "Axle Path X (mm)",
       axle_path_radius: "Axle Path Radius (mm)",

@@ -25,8 +25,8 @@ def get_gear_mapping(filenames):
         
     gear_list = list(gears)
     # Sort by ratio: Chainring / Cog. 
-    # Smallest ratio = Low gear (e.g., 32/51 = 0.62)
-    # Largest ratio = High gear (e.g., 32/10 = 3.20)
+    # Smallest ratio = Low gear (Climbing)
+    # Largest ratio = High gear (Descending)
     gear_list.sort(key=lambda g: int(g.split('x')[0]) / int(g.split('x')[1]))
     
     return gear_list[0], gear_list[-1]
@@ -60,53 +60,62 @@ def process_bike_folder(db, folder_path):
         
         # na_values=['?'] safely handles Linkage's missing geometry data
         df = pd.read_csv(file_path, sep=';', na_values=['?'])
-
-        # 1. IMMEDIATELY kill any ghost columns caused by trailing semicolons
+        
+        # IMMEDIATELY kill any ghost columns caused by trailing semicolons
         df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
         
         if 'Travel' not in df.columns:
             continue
             
-        # Parse the filename: "Atherton AM150 2024_Anti-squat_32x51.csv"
-        file_parts = file.replace('.csv', '').split('_')
-
-        # If it's a 2-column metric file (Travel + Metric)
-        if len(df.columns) == 2 and len(file_parts) >= 2:
-            metric = file_parts[1] # e.g., 'Anti-squat', 'Leverage Ratio'
+        file_parts_name = file.replace('.csv', '').split('_')
+        
+        # Handle 2-column files (Anti-squat, Leverage Ratio, etc.)
+        if len(df.columns) == 2 and len(file_parts_name) >= 2:
+            metric = file_parts_name[1] 
+            
             # Map the column based on the gear used
-            if len(file_parts) == 3:
-                gear = file_parts[2]
+            if len(file_parts_name) == 3:
+                gear = file_parts_name[2]
                 if gear == gear_low:
                     col_name = f"{metric}_low"
                 elif gear == gear_high:
                     col_name = f"{metric}_high"
                 else:
-                    col_name = f"{metric}_{gear}" # Fallback
+                    col_name = f"{metric}_{gear}" 
             else:
                 col_name = metric
                 
-            # Rename the second column to our standardized name
             df.rename(columns={df.columns[1]: col_name}, inplace=True)
             
-        # 1. Force the Travel column to be numbers. Text becomes 'NaN' (Not a Number)
+        # Handle Forces multi-column file to prevent collisions with Geometry
+        elif 'Forces' in file:
+            # Prefix every column except Travel with 'Force_'
+            rename_dict = {col: f"Force_{col}" for col in df.columns if col != 'Travel'}
+            df.rename(columns=rename_dict, inplace=True)
+            
+        # Force the Travel column to be numbers. Text footer becomes NaN.
         df['Travel'] = pd.to_numeric(df['Travel'], errors='coerce')
         
-        # 2. Drop any rows where Travel is NaN (this deletes the text footer)
+        # Drop any rows where Travel is NaN (deletes the text footer)
         df.dropna(subset=['Travel'], inplace=True)
-
-        # 3. Now it is safe to set the index
-        df.set_index('Travel', inplace=True)
         
-        # 4. Ensure the rest of the data is numeric too
+        # Set index and round to 1 decimal place to guarantee perfect alignment
+        df.set_index('Travel', inplace=True)
+        df.index = df.index.round(1)
+        
+        # Ensure the rest of the data is numeric too
         df = df.apply(pd.to_numeric, errors='coerce')
         dataframes.append(df)
+
+    if not dataframes:
+        print(f"No valid data extracted for {make} {model}.")
+        return
 
     # Merge everything on the Travel index
     merged_df = pd.concat(dataframes, axis=1).reset_index()
     
-    # FIX: Drop duplicate columns and 'ghost' columns caused by trailing semicolons
+    # Final check: Drop duplicate columns just in case
     merged_df = merged_df.loc[:, ~merged_df.columns.duplicated()]
-    merged_df = merged_df.loc[:, ~merged_df.columns.str.contains('^Unnamed')]
     
     # 4. Calculate Derived Metrics
     max_travel = merged_df['Travel'].max()
@@ -141,21 +150,31 @@ def process_bike_folder(db, folder_path):
         avg_antirise_squish=round(avg_ar, 2) if pd.notna(avg_ar) else None
     )
     db.add(new_bike)
-    db.flush()
+    db.flush() # Generate the ID
 
     # 6. Save Curve Points
     geometry_cols = ['RW_X', 'RW_Y', 'BB_X', 'BB_Y', 'FW_X', 'FW_Y', 'SHK1_X', 'SHK1_Y', 'SHK2_X', 'SHK2_Y', 'IC_X', 'IC_Y', 'CC_X', 'CC_Y']
 
     for _, row in merged_df.iterrows():
-        # Package geometry safely into a JSON dictionary, ignoring NaNs
-        geom_dict = {
-            col: round(row[col], 3) 
-            for col in geometry_cols 
-            if col in merged_df.columns and pd.notna(row[col])
-        }
-
+        
+        # Helper to safely grab data
         def get_val(col_name):
             return round(row[col_name], 3) if col_name in merged_df.columns and pd.notna(row[col_name]) else None
+
+        # Package Geometry into JSON
+        geom_dict = {
+            col: get_val(col) 
+            for col in geometry_cols 
+            if get_val(col) is not None
+        }
+        
+        # Package Forces into JSON
+        force_cols = [c for c in merged_df.columns if str(c).startswith('Force_')]
+        forces_dict = {
+            col.replace('Force_', ''): get_val(col) 
+            for col in force_cols 
+            if get_val(col) is not None
+        }
 
         point = KinematicCurve(
             bike_id=new_bike.id,
@@ -170,9 +189,9 @@ def process_bike_folder(db, folder_path):
             pedal_kickback_high=get_val('Pedal-kickback_high'),
             chain_growth_low=get_val('Chain Growth_low'),
             chain_growth_high=get_val('Chain Growth_high'),
-            forces=get_val('Forces'),
+            forces_data=forces_dict, 
             shock_compression=get_val('Shock Compression'),
-            axle_path_x=get_val('Axlepath X'), 
+            axle_path_x=get_val('Axlepath X'),
             axle_path_radius=get_val('Axle Path radius'),
             axle_path_steepness=get_val('Axle Path steepness'),
             geometry_data=geom_dict
@@ -186,7 +205,9 @@ if __name__ == "__main__":
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     
-    data_dir = "./data"
+    # Dynamically find the data folder so this runs from anywhere
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.join(base_dir, "data")
     
     if not os.path.exists(data_dir):
         print(f"Directory {data_dir} does not exist. Create it and add your bike folders.")
@@ -194,6 +215,10 @@ if __name__ == "__main__":
         for folder in os.listdir(data_dir):
             folder_path = os.path.join(data_dir, folder)
             if os.path.isdir(folder_path):
-                process_bike_folder(db, folder_path)
+                try:
+                    process_bike_folder(db, folder_path)
+                except Exception as e:
+                    print(f"Error processing {folder}: {e}")
+                    db.rollback()
                 
     db.close()

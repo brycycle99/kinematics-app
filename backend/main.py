@@ -51,7 +51,7 @@ def get_kinematics(bike_id: int, db: Session = Depends(get_db)):
             "pedal_kickback_high": p.pedal_kickback_high,
             "chain_growth_low": p.chain_growth_low,
             "chain_growth_high": p.chain_growth_high,
-            "forces": p.forces,
+            "forces_data": p.forces_data,
             "shock_compression": p.shock_compression,
             "axle_path_x": p.axle_path_x,
             "axle_path_radius": p.axle_path_radius,

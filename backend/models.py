@@ -42,7 +42,7 @@ class KinematicCurve(Base):
     chain_growth_low = Column(Float)
     chain_growth_high = Column(Float)
     
-    forces = Column(Float)
+    forces_data = Column(JSON)
     shock_compression = Column(Float)
 
     axle_path_x = Column(Float)
